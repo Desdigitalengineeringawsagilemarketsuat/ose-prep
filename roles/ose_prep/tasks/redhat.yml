@@ -1,0 +1,94 @@
+---
+#https://docs.openshift.org/latest/install_config/install/host_preparation.html
+
+- name: Install the EPEL repo
+  yum:
+    name: epel-release
+    state: present
+
+- name: Update the yum cache
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+
+- name: Upgrade all packages
+  yum:
+    name: '*'
+    state: latest
+
+- name: Installing Base Packages
+  yum:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - wget
+    - git
+    - net-tools
+    - bind-utils
+    - iptables-services
+    - bridge-utils
+    - bash-completion
+    - docker
+    - python-cryptography
+
+# - name: Disable the EPEL repository globally
+#   replace:
+#     dest: /etc/yum.repos.d/epel.repo
+#     regexp: '^enabled=1'
+#     replace: 'enabled=0'
+#     backup: yes
+
+- name: Install the EPEL repo packages
+  yum:
+    name: "{{ item }}"
+    enablerepo: "epel"
+    state: present
+  with_items:
+#   - ansible
+   - pyOpenSSL
+# #Ansible 2.2.0 dépendance
+# #Bug in openshiftAnsible
+   - python-devel
+   - python-httplib2
+   - sshpass
+   - python-keyczar
+
+- name: Install ansible 2.2.0.0
+  yum:
+    name: http://ftp.uni-hannover.de/pub/mirror/linux/epel/7Server/x86_64/a/ansible-2.2.0.0-4.el7.noarch.rpm
+    state: present
+
+- name: Add insecure registry and logs to docker OPTIONS
+  replace:
+   dest: /etc/sysconfig/docker
+   regexp: '^OPTIONS=.*'
+   replace: 'OPTIONS="--selinux-enabled --insecure-registry {{ openshift_prepare_services_subnet }} --log-opt max-size={{ openshift_prepare_log_max_size }} --log-opt max-file={{ openshift_prepare_log_max_file }}"'
+   backup: yes
+
+#TODO : Disk and VG management
+#https://docs.openshift.org/latest/install_config/install/host_preparation.html#configuring-docker-storage
+#https://galaxy.ansible.com/mkubenka/docker-storage-setup/
+
+- name: Enable docker service
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Download openshift-ansible repository
+  git:
+    repo: "https://github.com/openshift/openshift-ansible.git"
+    dest: "{{ openshift_prepare_ansible_dir }}"
+    version: "release-1.3"
+    accept_hostkey: yes
+    force: yes
+  register: git_deploy
+  until: git_deploy|succeeded
+  when: openshift_prepare_get_ansible_repo
+
+- name: Change mode on openshift install dir
+  file:
+    path: "{{ openshift_prepare_ansible_dir }}"
+    state: directory
+    mode: 0777
