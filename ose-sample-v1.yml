@@ -1,0 +1,86 @@
+# Create an OSEv3 group that contains the masters, nodes, and etcd groups
+[OSEv3:children]
+masters
+nodes
+etcd
+
+# host group for masters
+[masters]
+ip-10-0-2-22.us-west-2.compute.internal 
+#ip-10-0-1-29.us-west-2.compute.internal
+
+# host group for etcd
+[etcd]
+ip-10-0-2-22.us-west-2.compute.internal 
+ip-10-0-1-29.us-west-2.compute.internal
+
+# host group for nodes, includes region info
+[nodes]
+#ip-10-0-2-22.us-west-2.compute.internal 
+ip-10-0-1-19.us-west-2.compute.internal openshift_node_labels="{'region': 'primary', 'zone': 'east'}"
+ip-10-0-3-161.us-west-2.compute.internal openshift_node_labels="{'region': 'primary', 'zone': 'east'}"
+ip-10-0-2-246.us-west-2.compute.internal openshift_node_labels="{'region': 'infra', 'zone': 'default'}"
+ip-10-0-3-109.us-west-2.compute.internal openshift_node_labels="{'region': 'infra', 'zone': 'default'}"
+
+
+# Set variables common for all OSEv3 hosts
+[OSEv3:vars]
+ansible_ssh_user=ec2-user
+ansible_become=yes
+openshift_deployment_type=openshift-enterprise
+#
+
+# uncomment the following to enable htpasswd authentication; defaults to DenyAllPasswordIdentityProvider
+#openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/origin/master/htpasswd'}]
+
+
+# This enables all the system containers except for docker:
+openshift_use_system_containers=True
+#
+# But you can choose separately each component that must be a
+# system container:
+#
+openshift_use_openvswitch_system_container=True
+openshift_use_node_system_container=True
+openshift_use_master_system_container=True
+openshift_use_etcd_system_container=True
+#
+# In either case, system_images_registry must be specified to be able to find the system images
+#system_images_registry="docker.io"
+#when openshift_deployment_type=='openshift-enterprise'
+system_images_registry="10.0.5.245:5000"
+openshift_docker_additional_registries="10.0.5.245:5000"
+openshift_docker_insecure_registries="10.0.5.245:5000"
+openshift_docker_blocked_registries="10.0.5.245:5000"
+
+# Manage openshift example imagestreams and templates during install and upgrade
+openshift_install_examples=true
+
+# Configure logoutURL in the master config for console customization
+# See: https://docs.openshift.org/latest/install_config/web_console_customization.html#changing-the-logout-url
+#openshift_master_logout_url=http://example.com
+
+# Cloud Provider Configuration
+#
+# Note: You may make use of environment variables rather than store
+# sensitive configuration within the ansible inventory.
+# For example:
+#openshift_cloudprovider_aws_access_key="{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
+#openshift_cloudprovider_aws_secret_key="{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
+#
+# AWS
+#openshift_cloudprovider_kind=aws
+# Note: IAM profiles may be used instead of storing API credentials on disk.
+openshift_cloudprovider_aws_access_key=aws_access_key_id
+openshift_cloudprovider_aws_secret_key=aws_secret_access_key
+openshift_disable_check=memory_availability,disk_availability,docker_image_availability
+#openshift_disable_check=disk_availability
+
+# OpenShift Registry Console Options
+# Override the console image prefix for enterprise deployments, not used in origin
+# default is "registry.access.redhat.com/openshift3/" and the image appended is "registry-console"
+openshift_cockpit_deployer_prefix="10.0.5.245:5000/openshift3"
+# Override image version, defaults to latest for origin, matches the product version for enterprise
+openshift_cockpit_deployer_version=v3.6.173.0.21
+
+
