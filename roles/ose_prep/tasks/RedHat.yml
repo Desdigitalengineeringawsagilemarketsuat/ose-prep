@@ -70,7 +70,7 @@
     - docker
     - python-cryptography
     - atomic
-
+    - atomic-openshift-utils
 
 - name: Add insecure registry and logs to docker OPTIONS
   replace:
