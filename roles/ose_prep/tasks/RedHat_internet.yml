@@ -1,0 +1,78 @@
+---
+- name: get repo names
+  raw: find /etc/yum.repos.d/ -type f -name "*.repo"
+  register: repos
+
+- debug: var=repos.stdout_lines
+
+- name: Update the yum cache
+  yum:
+    name: '*'
+    state: latest
+    update_cache: yes
+
+- name: Upgrade all packages
+  yum:
+    name: '*'
+    state: latest
+#
+- name: Installing Base Packages
+  yum:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - wget
+    - git
+    - net-tools
+    - bind-utils
+    - iptables-services
+    - bridge-utils
+    - bash-completion
+    - kexec-tools
+    - sos
+    - psacct
+    - docker
+    - python-cryptography
+    - atomic
+    - atomic-openshift-utils
+
+- name: Add insecure registry and logs to docker OPTIONS
+  replace:
+   dest: /etc/sysconfig/docker
+   regexp: '^OPTIONS=.*'
+   replace: 'OPTIONS="--selinux-enabled --insecure-registry {{ openshift_prepare_services_subnet }} --log-opt max-size={{ openshift_prepare_log_max_size }} --log-opt max-file={{ openshift_prepare_log_max_file }}"'
+   backup: yes
+
+#TODO : Disk and VG management
+#https://docs.openshift.org/latest/install_config/install/host_preparation.html#configuring-docker-storage
+##https://galaxy.ansible.com/mkubenka/docker-storage-setup/
+#
+- name: configure docker-storage-setup
+  copy:
+    content: |
+      DEVS={{ openshift_docker_device }}
+      VG=docker-vg
+    dest: /etc/sysconfig/docker-storage-setup
+    mode: 0644
+    owner: root
+    group: root
+
+- name: setup docker storage
+  command: docker-storage-setup
+
+- name: Disable docker service
+  service:
+    name: docker
+    state: stopped
+    enabled: true
+
+- name: remove /var/lib/docker/* files
+#  shell: sudo sh -c 'rm -rf /var/lib/docker/*'
+  file: path={{ item }} state=absent
+  with_fileglob: /var/lib/docker/*
+
+- name: Enable docker service
+  service:
+    name: docker
+    state: started
+    enabled: true
